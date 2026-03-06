@@ -3,189 +3,93 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Padi Monitoring System</title>
-    
+    <title>Smart Rice Monitoring</title>
     <script src="https://d3js.org/d3.v7.min.js"></script>
-    
     <style>
-        :root {
-            --bg-body: #f0f2f5;
-            --bg-card: #ffffff;
-            --text-main: #2c3e50;
-            --accent: #27ae60;
-        }
-
-        [data-theme="dark"] {
-            --bg-body: #121212;
-            --bg-card: #1e1e1e;
-            --text-main: #ffffff;
-            --accent: #2ecc71;
-        }
-
-        body { 
-            font-family: 'Segoe UI', sans-serif; 
-            margin: 0; 
-            background-color: var(--bg-body); 
-            color: var(--text-main);
-            transition: 0.4s;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            min-height: 100vh;
-        }
-
-        .container { 
-            width: 90%; 
-            max-width: 450px; 
-            background: var(--bg-card); 
-            padding: 40px 25px; 
-            border-radius: 30px; 
-            box-shadow: 0 15px 35px rgba(0,0,0,0.1); 
-            text-align: center;
-            position: relative;
-        }
-
-        /* Navigasi Halaman */
+        :root { --bg: #f0f2f5; --card: #fff; --text: #2c3e50; }
+        [data-theme="dark"] { --bg: #121212; --card: #1e1e1e; --text: #eee; }
+        
+        body { font-family: sans-serif; background: var(--bg); color: var(--text); margin: 0; transition: 0.3s; display: flex; justify-content: center; align-items: center; min-height: 100vh; }
+        .container { width: 90%; max-width: 400px; background: var(--card); padding: 30px; border-radius: 25px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); text-align: center; position: relative; }
         .page { display: none; }
-        .active { display: block; animation: fadeIn 0.5s; }
-
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-
-        /* Styling Menu Home */
-        .logo-icon { font-size: 80px; margin-bottom: 20px; }
-        .btn-start {
-            background: var(--accent);
-            color: white;
-            border: none;
-            padding: 15px 40px;
-            border-radius: 50px;
-            font-size: 18px;
-            font-weight: bold;
-            cursor: pointer;
-            transition: 0.3s;
-            margin-top: 20px;
-        }
-        .btn-start:hover { transform: scale(1.05); background: #219150; }
-
-        /* Styling Dashboard */
-        #status-card {
-            width: 100%;
-            min-height: 180px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            border-radius: 20px;
-            font-size: 24px;
-            font-weight: bold;
-            color: white;
-            margin: 20px 0;
-        }
-        .bg-loading { background: #95a5a6; }
-        .bg-fase-1 { background: #27ae60; }
-        .bg-fase-2 { background: #2ecc71; }
-        .bg-fase-3 { background: #f1c40f; color: #2c3e50 !important; }
-        .bg-anomali { background: #e74c3c; }
-
-        #theme-btn {
-            position: absolute; top: 15px; right: 15px;
-            background: #34495e; color: white; border: none;
-            padding: 5px 12px; border-radius: 15px; cursor: pointer;
-        }
-
-        .btn-back {
-            background: none; border: 1px solid var(--text-main);
-            color: var(--text-main); padding: 5px 15px;
-            border-radius: 10px; cursor: pointer; margin-top: 20px;
-        }
+        .active { display: block; animation: fadeIn 0.4s; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        
+        #status-box { width: 100%; min-height: 150px; border-radius: 20px; display: flex; align-items: center; justify-content: center; font-size: 22px; font-weight: bold; color: #fff; margin: 20px 0; transition: 0.5s; }
+        .f-0 { background: #95a5a6; } .f-1 { background: #27ae60; } .f-2 { background: #2ecc71; } .f-3 { background: #f1c40f; color: #2c3e50 !important; } .f-err { background: #e74c3c; }
+        
+        button { cursor: pointer; border: none; border-radius: 50px; transition: 0.2s; }
+        .btn-start { background: #27ae60; color: #fff; padding: 15px 30px; font-size: 18px; margin-top: 20px; }
+        .btn-theme { position: absolute; top: 15px; right: 15px; background: #34495e; color: #fff; padding: 5px 10px; }
+        .btn-back { background: none; border: 1px solid var(--text); color: var(--text); padding: 8px 15px; margin-top: 15px; }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <button id="theme-btn">🌙</button>
+    <button class="btn-theme" onclick="toggleTheme()">🌙</button>
 
-    <div id="page-home" class="page active">
-        <div class="logo-icon">🌾</div>
+    <div id="p-home" class="page active">
+        <div style="font-size: 60px;">🌾</div>
         <h1>Smart Rice</h1>
-        <p style="color: #7f8c8d;">Monitoring Pertumbuhan Padi Real-Time Berbasis IoT</p>
-        <button class="btn-start" onclick="showPage('page-dashboard')">Mulai Pantau</button>
+        <p>Monitoring Pertumbuhan Real-Time</p>
+        <button class="btn-start" onclick="showPage('p-dash')">Mulai Pantau</button>
     </div>
 
-    <div id="page-dashboard" class="page">
-        <h2 style="margin: 0;">Status Padi</h2>
-        <div id="status-card" class="bg-loading">MENGHUBUNGKAN...</div>
-        <div id="sync-time" style="font-size: 12px; opacity: 0.7;">Sync: -</div>
-        <button class="btn-back" onclick="showPage('page-home')">← Kembali</button>
+    <div id="p-dash" class="page">
+        <h2>Status Padi</h2>
+        <div id="status-box" class="f-0">MENUNGGU DATA...</div>
+        <div id="sync" style="font-size: 11px; opacity: 0.6;">-</div>
+        <button class="btn-back" onclick="showPage('p-home')">Kembali</button>
     </div>
 </div>
 
 <script>
-    // --- KONFIGURASI INFLUXDB ---
-    const CONFIG = {
-        url: "https://us-east-1-1.aws.cloud2.influxdata.com", 
-        token: "ieRDXoPlxImCroRqKYzySuX1xBYVIW0HQa2bOjoPwYldMyNWaJ_bA1U6s9kL2nLpbbDs_1dXWO4sCQI2CuIEMA==",
+    const CFG = {
+        url: "https://us-east-1-1.aws.cloud2.influxdata.com",
+        token: "MASUKKAN_TOKEN_ASLIMU",
         org: "Monitoring",
-        bucket: "monitoring_padi"
+        bucket: "NAMA_BUCKET_MU"
     };
 
-    // --- NAVIGASI HALAMAN DENGAN D3.js ---
-    function showPage(pageId) {
-        d3.selectAll(".page").classed("active", false); // Sembunyikan semua
-        d3.select("#" + pageId).classed("active", true); // Tampilkan yang dipilih
+    function showPage(id) { d3.selectAll(".page").classed("active", false); d3.select("#"+id).classed("active", true); }
+    
+    function toggleTheme() {
+        const b = d3.select("body");
+        const isDark = b.attr("data-theme") === "dark";
+        b.attr("data-theme", isDark ? null : "dark");
+        d3.select(".btn-theme").text(isDark ? "🌙" : "☀️");
     }
 
-    // --- DARK MODE D3.js ---
-    let isDark = false;
-    d3.select("#theme-btn").on("click", function() {
-        isDark = !isDark;
-        d3.select("body").attr("data-theme", isDark ? "dark" : null);
-        d3.select(this).text(isDark ? "☀️" : "🌙");
-    });
-
-    // --- AMBIL DATA ---
-    async function updateData() {
-        const query = `from(bucket: "${CONFIG.bucket}") |> range(start: -1h) |> filter(fn: (r) => r._measurement == "pertumbuhan_padi") |> last()`;
+    async function getData() {
+        // Query ditingkatkan agar mengambil data paling baru (5 menit terakhir)
+        const flux = `from(bucket:"${CFG.bucket}") |> range(start: -5m) |> filter(fn: (r) => r._measurement == "pertumbuhan_padi") |> last()`;
         try {
-            const res = await fetch(`${CONFIG.url}/api/v2/query?org=${CONFIG.org}`, {
+            const res = await fetch(`${CFG.url}/api/v2/query?org=${CFG.org}`, {
                 method: 'POST',
-                headers: {'Authorization': `Token ${CONFIG.token}`, 'Content-Type': 'application/vnd.flux'}
-                , body: query
+                headers: {'Authorization': `Token ${CFG.token}`, 'Content-Type': 'application/vnd.flux'},
+                body: flux
             });
             const csv = await res.text();
-            processCSV(csv);
-        } catch (e) { console.log(e); }
-    }
-
-    function processCSV(csv) {
-        const lines = csv.trim().split('\n');
-        if (lines.length < 2) return;
-        const last = lines[lines.length-1].split(',');
-        let kode = null;
-        for(let i=last.length-1; i>=0; i--) {
-            if(["-1","0","1","2","3"].includes(last[i].trim())) {
-                kode = parseInt(last[i]); break;
+            const lines = csv.trim().split('\n');
+            if(lines.length > 1) {
+                const val = parseInt(lines[lines.length-1].split(',').find(v => ["-1","0","1","2","3"].includes(v.trim())));
+                updateUI(val);
             }
-        }
-        updateUI(kode);
+        } catch(e) { console.error(e); }
     }
 
-    function updateUI(kode) {
-        const card = d3.select("#status-card");
-        d3.select("#sync-time").text("Sync: " + new Date().toLocaleTimeString());
-        
-        let txt = "KOSONG"; let cls = "bg-fase-0";
-        if(kode === 1) { txt = "FASE 1: VEGETATIF"; cls = "bg-fase-1"; }
-        else if(kode === 2) { txt = "FASE 2: REPRODUKTIF"; cls = "bg-fase-2"; }
-        else if(kode === 3) { txt = "FASE 3: PEMATANGAN"; cls = "bg-fase-3"; }
-        else if(kode === -1) { txt = "⚠️ ANOMALI"; cls = "bg-anomali"; }
-
-        card.text(txt).attr("class", cls);
+    function updateUI(k) {
+        const box = d3.select("#status-box");
+        d3.select("#sync").text("Update: " + new Date().toLocaleTimeString());
+        if(k===1) box.text("VEGETATIF").attr("class", "f-1");
+        else if(k===2) box.text("REPRODUKTIF").attr("class", "f-2");
+        else if(k===3) box.text("PEMATANGAN").attr("class", "f-3");
+        else if(k===-1) box.text("⚠️ ANOMALI").attr("class", "f-err");
+        else box.text("KOSONG").attr("class", "f-0");
     }
 
-    setInterval(updateData, 2000);
+    setInterval(getData, 2000);
 </script>
 </body>
 </html>
