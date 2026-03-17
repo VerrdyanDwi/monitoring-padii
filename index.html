@@ -2,101 +2,94 @@
 <html lang="id">
 <head>
     <meta charset="UTF-8">
-    <title>Padi Monitoring - Indoor Mode</title>
-    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard Monitoring Padi - PENS</title>
+    <script src="https://cdn.jsdelivr.net/npm/@influxdata/influxdb-client-browser/dist/index.browser.js"></script>
     <style>
-        body { font-family: 'Segoe UI', sans-serif; background: #1a1a1a; color: #fff; margin: 0; display: flex; justify-content: center; align-items: center; height: 100vh; }
-        .card { background: #2d2d2d; padding: 2rem; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); text-align: center; width: 340px; border: 1px solid #444; }
-        
-        /* Status Fase */
-        .status-card { padding: 1.2rem; border-radius: 12px; font-weight: bold; font-size: 1.3rem; margin-bottom: 1.5rem; transition: 0.5s; box-shadow: inset 0 0 10px rgba(0,0,0,0.2); }
-        
-        /* Warna Daun */
-        .color-circle { width: 90px; height: 90px; border-radius: 50%; margin: 0 auto 1rem; border: 4px solid #444; transition: 0.5s; }
-        
-        /* Info RGB */
-        .rgb-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 1.5rem; }
-        .rgb-item { padding: 8px; border-radius: 8px; font-size: 0.85rem; font-weight: bold; }
-        .r { background: #c0392b; } .g { background: #27ae60; } .b { background: #2980b9; }
-
-        .time { font-size: 0.7rem; color: #888; margin-top: 15px; }
-
-        /* Klasifikasi Warna Status */
-        .bg-0 { background: #7f8c8d; } /* Kosong */
-        .bg-1 { background: #27ae60; } /* Vegetatif */
-        .bg-2 { background: #2ecc71; } /* Reproduktif */
-        .bg-3 { background: #f1c40f; color: #1a1a1a; } /* Pematangan */
-        .bg-err { background: #e74c3c; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #1a1a1a; color: white; text-align: center; }
+        .container { display: flex; flex-wrap: wrap; justify-content: center; gap: 20px; padding: 20px; }
+        .card { background: #2d2d2d; padding: 20px; border-radius: 15px; width: 200px; border-bottom: 5px solid #4CAF50; box-shadow: 0 4px 8px rgba(0,0,0,0.3); }
+        h1 { color: #4CAF50; margin-top: 30px; }
+        .value { font-size: 2em; font-weight: bold; margin: 10px 0; }
+        .unit { font-size: 0.5em; color: #aaa; }
+        .status-on { color: #4CAF50; }
+        .status-off { color: #f44336; }
     </style>
 </head>
 <body>
-    <div class="card">
-        <h2 style="margin-top:0; font-size: 1.5rem;">Padi IoT Monitor</h2>
-        
-        <div id="status-display" class="status-card bg-0">MENGHUBUNGKAN...</div>
-        
-        <p style="font-size: 0.9rem; color: #bbb; margin-bottom: 10px;">Sensor Warna (Indoor):</p>
-        <div id="leaf-color" class="color-circle"></div>
-        
-        <div class="rgb-grid">
-            <div class="rgb-item r">R: <span id="r-val">0</span></div>
-            <div class="rgb-item g">G: <span id="g-val">0</span></div>
-            <div class="rgb-item b">B: <span id="b-val">0</span></div>
+
+    <h1>SISTEM MONITORING PADI (PENS)</h1>
+    <p>Data Real-time dari Cloud InfluxDB</p>
+
+    <div class="container">
+        <div class="card">
+            <div>TEGANGAN</div>
+            <div class="value" id="voltase">-- <span class="unit">V</span></div>
         </div>
-        
-        <div class="time" id="timestamp">Sinkronisasi data...</div>
+
+        <div class="card">
+            <div>ARUS</div>
+            <div class="value" id="arus">-- <span class="unit">mA</span></div>
+        </div>
+
+        <div class="card" style="border-bottom-color: #2196F3;">
+            <div>BATERAI</div>
+            <div class="value" id="persen">-- <span class="unit">%</span></div>
+        </div>
+
+        <div class="card" style="border-bottom-color: #ff9800;">
+            <div>SUHU CPU</div>
+            <div class="value" id="suhu">-- <span class="unit">°C</span></div>
+        </div>
     </div>
 
-<script>
-    const CONFIG = {
-        url: "https://us-east-1-1.aws.cloud2.influxdata.com",
-        token: "ieRDXoPlxImCroRqKYzySuX1xBYVIW0HQa2bOjoPwYldMyNWaJ_bA1U6s9kL2nLpbbDs_1dXWO4sCQI2CuIEMA==",
-        org: "Monitoring",
-        bucket: "monitoring_padi"
-    };
+    <div id="last-update" style="margin-top: 20px; color: #666;">Menghubungkan ke server...</div>
 
-    async function fetchData() {
-        const query = `from(bucket: "${CONFIG.bucket}") 
-            |> range(start: -1h) 
-            |> filter(fn: (r) => r._measurement == "pertumbuhan_padi") 
-            |> last() 
-            |> pivot(rowKey:["_time"], columnKey: ["_field"], valueColumn: "_value")`;
+    <script>
+        // --- KONFIGURASI INFLUXDB ---
+        const url = "https://us-east-1-1.aws.cloud2.influxdata.com";
+        const token = "ieRDXoPlxImCroRqKYzySuX1xBYVIW0HQa2bOjoPwYldMyNWaJ_bA1U6s9kL2nLpbbDs_1dXWO4sCQI2CuIEMA==";
+        const org = "Monitoring";
+        const bucket = "monitoring_padi";
 
-        try {
-            const response = await fetch(`${CONFIG.url}/api/v2/query?org=${CONFIG.org}`, {
-                method: 'POST',
-                headers: { 'Authorization': `Token ${CONFIG.token}`, 'Content-Type': 'application/vnd.flux' },
-                body: query
+        const {InfluxDB} = window['@influxdata/influxdb-client'];
+        const queryApi = new InfluxDB({url, token}).getQueryApi(org);
+
+        function updateDashboard() {
+            // Query untuk mengambil data terakhir dari measurement 'power_system'
+            const fluxQuery = `
+                from(bucket: "${bucket}")
+                |> range(start: -1h)
+                |> filter(fn: (r) => r["_measurement"] == "power_system")
+                |> last()
+            `;
+
+            let data = {};
+
+            queryApi.queryRows(fluxQuery, {
+                next(row, tableMeta) {
+                    const o = tableMeta.toObject(row);
+                    data[o._field] = o._value;
+                },
+                error(error) {
+                    console.error(error);
+                    document.getElementById('last-update').innerText = "Koneksi Error!";
+                },
+                complete() {
+                    // Update tampilan HTML
+                    if (data.voltase) document.getElementById('voltase').innerHTML = `${data.voltase.toFixed(2)} <span class="unit">V</span>`;
+                    if (data.arus_ma) document.getElementById('arus').innerHTML = `${data.arus_ma.toFixed(1)} <span class="unit">mA</span>`;
+                    if (data.persen_bat) document.getElementById('persen').innerHTML = `${Math.round(data.persen_bat)} <span class="unit">%</span>`;
+                    if (data.suhu_cpu) document.getElementById('suhu').innerHTML = `${data.suhu_cpu.toFixed(1)} <span class="unit">°C</span>`;
+                    
+                    document.getElementById('last-update').innerText = "Terakhir diperbarui: " + new Date().toLocaleTimeString();
+                },
             });
-            const data = d3.csvParse(await response.text());
+        }
 
-            if (data.length > 0) {
-                const d = data[0];
-                const kode = parseInt(d.kode_fase);
-                const r = d.r || 0, g = d.g || 0, b = d.b || 0;
-
-                // Update UI
-                const statusEl = document.getElementById("status-display");
-                let txt = "KOSONG", cls = "bg-0";
-                if(kode === 1) { txt = "VEGETATIF"; cls = "bg-1"; }
-                else if(kode === 2) { txt = "REPRODUKTIF"; cls = "bg-2"; }
-                else if(kode === 3) { txt = "PEMATANGAN"; cls = "bg-3"; }
-                else if(kode === -1) { txt = "ANOMALI"; cls = "bg-err"; }
-
-                statusEl.innerText = txt;
-                statusEl.className = `status-card ${cls}`;
-                
-                document.getElementById("leaf-color").style.backgroundColor = `rgb(${r},${g},${b})`;
-                document.getElementById("r-val").innerText = r;
-                document.getElementById("g-val").innerText = g;
-                document.getElementById("b-val").innerText = b;
-                document.getElementById("timestamp").innerText = "Terakhir Update: " + new Date().toLocaleTimeString();
-            }
-        } catch (err) { console.error(err); }
-    }
-
-    setInterval(fetchData, 2000);
-    fetchData();
-</script>
+        // Jalankan update setiap 5 detik
+        setInterval(updateDashboard, 5000);
+        updateDashboard();
+    </script>
 </body>
 </html>
