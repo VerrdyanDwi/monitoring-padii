@@ -3,50 +3,58 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dashboard Monitoring Padi - PENS</title>
+    <title>Monitoring Daya Padi - Match AVO</title>
     <script src="https://cdn.jsdelivr.net/npm/@influxdata/influxdb-client-browser/dist/index.browser.js"></script>
     <style>
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #1a1a1a; color: white; text-align: center; }
-        .container { display: flex; flex-wrap: wrap; justify-content: center; gap: 20px; padding: 20px; }
-        .card { background: #2d2d2d; padding: 20px; border-radius: 15px; width: 200px; border-bottom: 5px solid #4CAF50; box-shadow: 0 4px 8px rgba(0,0,0,0.3); }
-        h1 { color: #4CAF50; margin-top: 30px; }
-        .value { font-size: 2em; font-weight: bold; margin: 10px 0; }
-        .unit { font-size: 0.5em; color: #aaa; }
-        .status-on { color: #4CAF50; }
-        .status-off { color: #f44336; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #121212; color: #e0e0e0; text-align: center; margin: 0; }
+        .header { background: #1f1f1f; padding: 20px; border-bottom: 2px solid #4CAF50; }
+        h1 { color: #4CAF50; margin: 0; font-size: 1.8em; }
+        .container { display: flex; flex-wrap: wrap; justify-content: center; gap: 20px; padding: 30px; }
+        .card { background: #1e1e1e; padding: 25px; border-radius: 15px; width: 220px; box-shadow: 0 10px 20px rgba(0,0,0,0.5); position: relative; overflow: hidden; }
+        .card::before { content: ""; position: absolute; top: 0; left: 0; width: 100%; height: 5px; background: #4CAF50; }
+        .label { font-size: 0.8em; color: #888; text-transform: uppercase; letter-spacing: 1px; }
+        .value { font-size: 2.2em; font-weight: bold; margin: 15px 0; color: #fff; }
+        .unit { font-size: 0.4em; color: #777; margin-left: 5px; }
+        #status-box { font-weight: bold; padding: 5px 15px; border-radius: 20px; font-size: 0.9em; display: inline-block; margin-top: 10px; }
+        .bg-charging { background: rgba(76, 175, 80, 0.2); color: #4CAF50; border: 1px solid #4CAF50; }
+        .bg-discharging { background: rgba(244, 67, 54, 0.2); color: #f44336; border: 1px solid #f44336; }
+        .bg-standby { background: rgba(158, 158, 158, 0.2); color: #9e9e9e; border: 1px solid #9e9e9e; }
+        #last-update { font-size: 0.8em; color: #555; margin-bottom: 30px; }
     </style>
 </head>
 <body>
 
-    <h1>SISTEM MONITORING PADI (PENS)</h1>
-    <p>Data Real-time dari Cloud InfluxDB</p>
+    <div class="header">
+        <h1>SISTEM MONITORING DAYA PADI</h1>
+        <div id="status-box" class="bg-standby">MENGHUBUNGKAN...</div>
+    </div>
 
     <div class="container">
         <div class="card">
-            <div>TEGANGAN</div>
-            <div class="value" id="voltase">-- <span class="unit">V</span></div>
+            <div class="label">Tegangan (AVO)</div>
+            <div class="value" id="voltase">--<span class="unit">V</span></div>
+            <div id="persen" style="color: #4CAF50; font-size: 0.9em;">--% Capacity</div>
         </div>
 
-        <div class="card">
-            <div>ARUS</div>
-            <div class="value" id="arus">-- <span class="unit">mA</span></div>
+        <div class="card" style="border-bottom: 3px solid #2196F3;">
+            <div class="label">Arus Mengalir</div>
+            <div class="value" id="arus" style="color: #2196F3;">--<span class="unit">mA</span></div>
         </div>
 
-        <div class="card" style="border-bottom-color: #2196F3;">
-            <div>BATERAI</div>
-            <div class="value" id="persen">-- <span class="unit">%</span></div>
+        <div class="card" style="border-bottom: 3px solid #ff9800;">
+            <div class="label">Konsumsi Daya</div>
+            <div class="value" id="watt" style="color: #ff9800;">--<span class="unit">W</span></div>
         </div>
 
-        <div class="card" style="border-bottom-color: #ff9800;">
-            <div>SUHU CPU</div>
-            <div class="value" id="suhu">-- <span class="unit">°C</span></div>
+        <div class="card" style="border-bottom: 3px solid #9c27b0;">
+            <div class="label">Suhu CPU Pi</div>
+            <div class="value" id="suhu" style="color: #9c27b0;">--<span class="unit">°C</span></div>
         </div>
     </div>
 
-    <div id="last-update" style="margin-top: 20px; color: #666;">Menghubungkan ke server...</div>
+    <div id="last-update">Menunggu data dari Raspberry Pi Ferdi...</div>
 
     <script>
-        // --- KONFIGURASI INFLUXDB ---
         const url = "https://us-east-1-1.aws.cloud2.influxdata.com";
         const token = "ieRDXoPlxImCroRqKYzySuX1xBYVIW0HQa2bOjoPwYldMyNWaJ_bA1U6s9kL2nLpbbDs_1dXWO4sCQI2CuIEMA==";
         const org = "Monitoring";
@@ -56,38 +64,52 @@
         const queryApi = new InfluxDB({url, token}).getQueryApi(org);
 
         function updateDashboard() {
-            // Query untuk mengambil data terakhir dari measurement 'power_system'
+            // Query mengambil data terbaru dari measurement 'power_monitoring_avo'
             const fluxQuery = `
                 from(bucket: "${bucket}")
                 |> range(start: -1h)
-                |> filter(fn: (r) => r["_measurement"] == "power_system")
+                |> filter(fn: (r) => r["_measurement"] == "power_monitoring_avo")
                 |> last()
             `;
 
-            let data = {};
+            let results = {};
 
             queryApi.queryRows(fluxQuery, {
                 next(row, tableMeta) {
                     const o = tableMeta.toObject(row);
-                    data[o._field] = o._value;
+                    results[o._field] = o._value;
                 },
                 error(error) {
                     console.error(error);
-                    document.getElementById('last-update').innerText = "Koneksi Error!";
+                    document.getElementById('last-update').innerText = "Koneksi Cloud Terputus!";
                 },
                 complete() {
-                    // Update tampilan HTML
-                    if (data.voltase) document.getElementById('voltase').innerHTML = `${data.voltase.toFixed(2)} <span class="unit">V</span>`;
-                    if (data.arus_ma) document.getElementById('arus').innerHTML = `${data.arus_ma.toFixed(1)} <span class="unit">mA</span>`;
-                    if (data.persen_bat) document.getElementById('persen').innerHTML = `${Math.round(data.persen_bat)} <span class="unit">%</span>`;
-                    if (data.suhu_cpu) document.getElementById('suhu').innerHTML = `${data.suhu_cpu.toFixed(1)} <span class="unit">°C</span>`;
+                    // Update tampilan data
+                    if (results.voltase) document.getElementById('voltase').innerHTML = results.voltase.toFixed(2) + '<span class="unit">V</span>';
+                    if (results.arus_ma) document.getElementById('arus').innerHTML = results.arus_ma.toFixed(1) + '<span class="unit">mA</span>';
+                    if (results.daya_watt) document.getElementById('watt').innerHTML = results.daya_watt.toFixed(2) + '<span class="unit">W</span>';
+                    if (results.persen_bat) document.getElementById('persen').innerText = Math.round(results.persen_bat) + "% Capacity";
+                    if (results.suhu_cpu) document.getElementById('suhu').innerHTML = results.suhu_cpu.toFixed(1) + '<span class="unit">°C</span>';
                     
-                    document.getElementById('last-update').innerText = "Terakhir diperbarui: " + new Date().toLocaleTimeString();
+                    // Update Status Box berdasarkan kode_status
+                    const statusBox = document.getElementById('status-box');
+                    if (results.kode_status === 1) {
+                        statusBox.innerText = "STATUS: CHARGING";
+                        statusBox.className = "bg-charging";
+                    } else if (results.kode_status === -1) {
+                        statusBox.innerText = "STATUS: DISCHARGING";
+                        statusBox.className = "bg-discharging";
+                    } else {
+                        statusBox.innerText = "STATUS: STANDBY / FULL";
+                        statusBox.className = "bg-standby";
+                    }
+
+                    document.getElementById('last-update').innerText = "Update Terakhir: " + new Date().toLocaleTimeString();
                 },
             });
         }
 
-        // Jalankan update setiap 5 detik
+        // Jalankan update otomatis tiap 5 detik
         setInterval(updateDashboard, 5000);
         updateDashboard();
     </script>
