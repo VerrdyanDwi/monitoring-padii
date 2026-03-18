@@ -3,85 +3,143 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dashboard Padi Pro</title>
+    <title>Dashboard Padi Pro V2 - Ferdi PENS</title>
     <script src="https://cdn.jsdelivr.net/npm/@influxdata/influxdb-client-browser/dist/index.browser.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
-        body { font-family: sans-serif; background: #121212; color: white; margin: 0; padding: 10px; }
-        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-        .card { background: #1e1e1e; padding: 12px; border-radius: 8px; text-align: center; border-top: 3px solid #4CAF50; }
-        .label { font-size: 0.65em; color: #888; text-transform: uppercase; }
-        .val { font-size: 1.3em; font-weight: bold; display: block; margin-top: 4px; }
-        .chart-box { background: #1e1e1e; margin-top: 15px; padding: 10px; border-radius: 8px; height: 180px; }
-        h4 { margin: 15px 0 5px 5px; color: #4CAF50; font-size: 0.9em; }
+        :root { --primary: #4CAF50; --bg: #121212; --card: #1e1e1e; --blue: #2196F3; }
+        body { font-family: 'Segoe UI', sans-serif; background: var(--bg); color: white; margin: 0; padding: 10px; }
+        .wrapper { max-width: 1200px; margin: auto; }
+        .header { text-align: center; border-bottom: 2px solid var(--primary); padding-bottom: 10px; margin-bottom: 20px; }
+        h1 { font-size: 1.4rem; color: var(--primary); margin: 5px 0; }
+        
+        /* Grid Hybrid (2 col mobile, 4 col desktop) */
+        .grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 20px; }
+        @media (min-width: 768px) { .grid { grid-template-columns: repeat(4, 1fr); } h1 { font-size: 2rem; } }
+
+        .card { background: var(--card); padding: 15px; border-radius: 12px; text-align: center; border-top: 4px solid var(--primary); }
+        .label { font-size: 0.7rem; color: #888; text-transform: uppercase; font-weight: bold; }
+        .val { font-size: 1.6rem; font-weight: bold; margin: 8px 0; display: block; }
+        .unit { font-size: 0.7rem; color: #555; }
+
+        /* Charts Hybrid */
+        .charts-wrapper { display: grid; grid-template-columns: 1fr; gap: 15px; }
+        @media (min-width: 992px) { .charts-wrapper { grid-template-columns: 1fr 1fr; } }
+        .chart-container { background: var(--card); padding: 15px; border-radius: 12px; height: 280px; }
+        h3 { font-size: 0.9rem; color: var(--primary); margin: 0 0 10px 0; }
+        
+        #status { font-size: 0.75rem; color: #666; text-align: center; margin-top: 15px; }
     </style>
 </head>
 <body>
-    <h3 style="text-align: center; margin: 5px 0;">PADI MONITORING PRO</h3>
 
-    <div class="grid">
-        <div class="card"><span class="label">Voltase</span><span class="val" id="v">--</span></div>
-        <div class="card" style="border-top-color:#2196F3"><span class="label">Arus (mA)</span><span class="val" id="i" style="color:#2196F3">--</span></div>
-        <div class="card" style="border-top-color:#ff9800"><span class="label">Baterai</span><span class="val" id="p" style="color:#ff9800">--</span></div>
-        <div class="card" style="border-top-color:#9c27b0"><span class="label">Suhu CPU</span><span class="val" id="s" style="color:#9c27b0">--</span></div>
+<div class="wrapper">
+    <div class="header">
+        <h1>IOT MONITORING PADI PRO</h1>
+        <div id="status">Menghubungkan ke Cloud...</div>
     </div>
 
-    <h4>Tegangan Baterai (V)</h4>
-    <div class="chart-box"><canvas id="voltChart"></canvas></div>
+    <div class="grid">
+        <div class="card">
+            <div class="label">Voltase (AVO)</div>
+            <span class="val" id="v">--<span class="unit">V</span></span>
+        </div>
+        <div class="card" style="border-top-color: var(--blue);">
+            <div class="label">Arus Sistem</div>
+            <span class="val" id="i" style="color: var(--blue);">--<span class="unit">mA</span></span>
+        </div>
+        <div class="card" style="border-top-color: #ff9800;">
+            <div class="label">Baterai 3S</div>
+            <span class="val" id="p" style="color:#ff9800">--<span class="unit">%</span></span>
+        </div>
+        <div class="card" style="border-top-color: #9c27b0;">
+            <div class="label">Suhu CPU Pi</div>
+            <span class="val" id="s" style="color:#9c27b0">--<span class="unit">°C</span></span>
+        </div>
+    </div>
 
-    <h4>Suhu CPU Raspberry Pi (°C)</h4>
-    <div class="chart-box"><canvas id="tempChart"></canvas></div>
+    <div class="charts-wrapper">
+        <div class="chart-container">
+            <h3>Riwayat Arus (30 Detik Sekali)</h3>
+            <canvas id="arusChart"></canvas>
+        </div>
+        <div class="chart-container">
+            <h3>Riwayat Suhu CPU</h3>
+            <canvas id="tempChart"></canvas>
+        </div>
+    </div>
+</div>
 
-    <script>
-        const conf = {
-            url: "https://us-east-1-1.aws.cloud2.influxdata.com",
-            token: "ieRDXoPlxImCroRqKYzySuX1xBYVIW0HQa2bOjoPwYldMyNWaJ_bA1U6s9kL2nLpbbDs_1dXWO4sCQI2CuIEMA==",
-            org: "Monitoring", bucket: "monitoring_padi"
-        };
-        const queryApi = new inject.InfluxDB({url: conf.url, token: conf.token}).getQueryApi(conf.org);
+<script>
+    const conf = {
+        url: "https://us-east-1-1.aws.cloud2.influxdata.com",
+        token: "ieRDXoPlxImCroRqKYzySuX1xBYVIW0HQa2bOjoPwYldMyNWaJ_bA1U6s9kL2nLpbbDs_1dXWO4sCQI2CuIEMA==",
+        org: "Monitoring",
+        bucket: "monitoring_padi"
+    };
 
-        function createChart(id, color, label) {
-            return new Chart(document.getElementById(id), {
-                type: 'line',
-                data: { labels: [], datasets: [{ data: [], borderColor: color, tension: 0.3, fill: false, pointRadius: 0 }] },
-                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { grid: { color: '#333' } }, x: { grid: { display: false } } } }
-            });
-        }
+    const { InfluxDB } = window['@influxdata/influxdb-client'];
+    const queryApi = new InfluxDB({url: conf.url, token: conf.token}).getQueryApi(conf.org);
 
-        const voltChart = createChart('voltChart', '#4CAF50');
-        const tempChart = createChart('tempChart', '#9c27b0');
-
-        function update() {
-            const flux = `from(bucket: "${conf.bucket}") |> range(start: -6h) |> filter(fn: (r) => r._measurement == "power_pro")`;
-            let latest = {}, vData = [], tData = [], labels = [];
-
-            queryApi.queryRows(flux, {
-                next(row, tableMeta) {
-                    const o = tableMeta.toObject(row);
-                    const time = new Date(o._time).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
-                    if (o._field === "voltase") { labels.push(time); vData.push(o._value); }
-                    if (o._field === "suhu_cpu") { tData.push(o._value); }
-                    latest[o._field] = o._value;
-                },
-                complete() {
-                    if (latest.voltase) {
-                        document.getElementById('v').innerText = latest.voltase.toFixed(2) + "V";
-                        document.getElementById('i').innerText = Math.round(latest.arus_ma);
-                        document.getElementById('p').innerText = Math.round(latest.persen) + "%";
-                        document.getElementById('s').innerText = latest.suhu_cpu.toFixed(1) + "°C";
-                        
-                        voltChart.data.labels = labels.slice(-30);
-                        voltChart.data.datasets[0].data = vData.slice(-30);
-                        voltChart.update();
-
-                        tempChart.data.labels = labels.slice(-30);
-                        tempChart.data.datasets[0].data = tData.slice(-30);
-                        tempChart.update();
-                    }
+    function makeChart(id, color, label) {
+        return new Chart(document.getElementById(id), {
+            type: 'line',
+            data: { labels: [], datasets: [{ label: label, data: [], borderColor: color, tension: 0.3, fill: false, pointRadius: 0 }] },
+            options: { 
+                responsive: true, 
+                maintainAspectRatio: false, 
+                plugins: { legend: { display: false } },
+                scales: { 
+                    y: { grid: { color: '#333' }, ticks: { color: '#888' } },
+                    x: { grid: { display: false }, ticks: { font: {size: 9}, color: '#888' } } 
                 }
-            });
-        }
-        setInterval(update, 30000); update();
-    </script>
+            }
+        });
+    }
+
+    const arusChart = makeChart('arusChart', '#2196F3', 'mA');
+    const tempChart = makeChart('tempChart', '#9c27b0', '°C');
+
+    function updateDashboard() {
+        // Query data 12 jam terakhir dari 'power_pro'
+        const flux = `from(bucket: "${conf.bucket}") |> range(start: -12h) |> filter(fn: (r) => r._measurement == "power_pro")`;
+        
+        let latest = {}, aData = [], tData = [], labels = [];
+
+        queryApi.queryRows(flux, {
+            next(row, tableMeta) {
+                const o = tableMeta.toObject(row);
+                const time = new Date(o._time).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+                if (o._field === "arus_ma") { labels.push(time); aData.push(o._value); }
+                if (o._field === "suhu_cpu") { tData.push(o._value); }
+                latest[o._field] = o._value;
+            },
+            complete() {
+                if (latest.voltase) {
+                    document.getElementById('v').innerHTML = latest.voltase.toFixed(2) + '<span class="unit">V</span>';
+                    document.getElementById('i').innerHTML = latest.arus_ma.toFixed(1) + '<span class="unit">mA</span>';
+                    document.getElementById('p').innerHTML = Math.round(latest.persen) + '<span class="unit">%</span>';
+                    document.getElementById('s').innerHTML = latest.suhu_cpu.toFixed(1) + '<span class="unit">°C</span>';
+
+                    // Update Grafik (Ambil 30 data terakhir agar detail)
+                    arusChart.data.labels = labels.slice(-30);
+                    arusChart.data.datasets[0].data = aData.slice(-30);
+                    arusChart.update();
+
+                    tempChart.data.labels = labels.slice(-30);
+                    tempChart.data.datasets[0].data = tData.slice(-30);
+                    tempChart.update();
+
+                    document.getElementById('status').innerText = "Terakhir Diperbarui: " + new Date().toLocaleTimeString();
+                }
+            },
+            error(e) { console.error(e); document.getElementById('status').innerText = "❌ Koneksi Gagal!"; }
+        });
+    }
+
+    // Update setiap 30 detik agar sinkron dengan Python
+    setInterval(updateDashboard, 30000); 
+    updateDashboard();
+</script>
 </body>
 </html>
