@@ -2,206 +2,86 @@
 <html lang="id">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>IoT Padi Mobile - Ferdi PENS</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Padi Monitoring - Mobile</title>
     <script src="https://cdn.jsdelivr.net/npm/@influxdata/influxdb-client-browser/dist/index.browser.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
-        :root {
-            --bg-dark: #121212;
-            --card-bg: #1e1e1e;
-            --primary: #4CAF50;
-            --accent-blue: #2196F3;
-            --accent-orange: #ff9800;
-            --accent-purple: #9c27b0;
-        }
-
-        body { 
-            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; 
-            background: var(--bg-dark); 
-            color: #e0e0e0; 
-            margin: 0; 
-            padding: 10px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-        }
-
-        .header { 
-            width: 100%;
-            max-width: 500px;
-            margin-bottom: 20px; 
-            border-bottom: 2px solid var(--primary); 
-            padding-bottom: 10px;
-            text-align: center;
-        }
-
-        h1 { color: var(--primary); margin: 0; font-size: 1.4em; }
-
-        .grid { 
-            display: grid; 
-            grid-template-columns: 1fr 1fr; /* 2 Kolom di HP */
-            gap: 10px; 
-            width: 100%;
-            max-width: 500px;
-            margin-bottom: 20px; 
-        }
-
-        .card { 
-            background: var(--card-bg); 
-            padding: 15px; 
-            border-radius: 12px; 
-            box-shadow: 0 4px 10px rgba(0,0,0,0.3); 
-            border-top: 4px solid var(--primary);
-            text-align: center;
-        }
-
-        .label { font-size: 0.7em; color: #888; margin-bottom: 8px; text-transform: uppercase; font-weight: bold; }
-        .val { font-size: 1.6em; font-weight: bold; color: #fff; }
-        .unit { font-size: 0.5em; color: #666; margin-left: 2px; }
-
-        .chart-box { 
-            background: var(--card-bg); 
-            padding: 10px; 
-            border-radius: 12px; 
-            height: 250px; /* Lebih pendek untuk HP */
-            width: 95%;
-            max-width: 500px;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.3); 
-            box-sizing: border-box;
-        }
-
-        #status-cloud { font-size: 0.75em; color: #aaa; margin-top: 8px; }
-
-        /* Status Warna Baterai */
-        .bat-high { color: #4CAF50; }
-        .bat-mid { color: #FFEB3B; }
-        .bat-low { color: #F44336; }
-
-        /* Responsif untuk layar sangat kecil */
-        @media (max-width: 360px) {
-            .val { font-size: 1.3em; }
-            h1 { font-size: 1.1em; }
-        }
+        body { font-family: sans-serif; background: #121212; color: white; margin: 0; padding: 15px; }
+        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 20px; }
+        .card { background: #1e1e1e; padding: 15px; border-radius: 10px; border-top: 4px solid #4CAF50; text-align: center; }
+        .val { font-size: 1.5em; font-weight: bold; display: block; margin-top: 5px; }
+        .label { font-size: 0.7em; color: #888; text-transform: uppercase; }
+        .chart-container { background: #1e1e1e; margin-top: 20px; padding: 10px; border-radius: 10px; height: 250px; }
+        #status { font-size: 0.7em; color: #666; margin-top: 10px; text-align: center; }
     </style>
 </head>
 <body>
-
-    <div class="header">
-        <h1>IOT PADI - FERDI PENS</h1>
-        <div id="status-cloud">Menghubungkan...</div>
-    </div>
+    <h3 style="text-align: center; color: #4CAF50; margin: 0;">IOT PADI - FERDI PENS</h3>
+    <div id="status">Menghubungkan...</div>
 
     <div class="grid">
-        <div class="card">
-            <div class="label">Tegangan</div>
-            <div class="val" id="v">--<span class="unit">V</span></div>
-        </div>
-        <div class="card" style="border-top-color: var(--accent-blue);">
-            <div class="label">Arus</div>
-            <div class="val" id="i" style="color: var(--accent-blue);">--<span class="unit">mA</span></div>
-        </div>
-        <div class="card" style="border-top-color: var(--accent-orange);">
-            <div class="label">Baterai</div>
-            <div class="val" id="p">--<span class="unit">%</span></div>
-        </div>
-        <div class="card" style="border-top-color: var(--accent-purple);">
-            <div class="label">CPU Temp</div>
-            <div class="val" id="s" style="color: var(--accent-purple);">--<span class="unit">°C</span></div>
-        </div>
+        <div class="card"><span class="label">Tegangan</span><span class="val" id="v">--</span></div>
+        <div class="card" style="border-top-color:#2196F3"><span class="label">Arus (mA)</span><span class="val" id="i" style="color:#2196F3">--</span></div>
+        <div class="card" style="border-top-color:#ff9800"><span class="label">Baterai</span><span class="val" id="p" style="color:#ff9800">--</span></div>
+        <div class="card" style="border-top-color:#9c27b0"><span class="label">Suhu Pi</span><span class="val" id="s" style="color:#9c27b0">--</span></div>
     </div>
 
-    <div class="chart-box">
-        <canvas id="mainChart"></canvas>
+    <div class="chart-container">
+        <canvas id="myChart"></canvas>
     </div>
 
     <script>
-        const INFLUX_CONFIG = {
+        const conf = {
             url: "https://us-east-1-1.aws.cloud2.influxdata.com",
             token: "ieRDXoPlxImCroRqKYzySuX1xBYVIW0HQa2bOjoPwYldMyNWaJ_bA1U6s9kL2nLpbbDs_1dXWO4sCQI2CuIEMA==",
             org: "Monitoring",
             bucket: "monitoring_padi"
         };
 
-        const { InfluxDB } = window['@influxdata/influxdb-client'];
-        const queryApi = new InfluxDB({ url: INFLUX_CONFIG.url, token: INFLUX_CONFIG.token }).getQueryApi(INFLUX_CONFIG.org);
-
-        const ctx = document.getElementById('mainChart').getContext('2d');
-        const mainChart = new Chart(ctx, {
+        const queryApi = new inject.InfluxDB({url: conf.url, token: conf.token}).getQueryApi(conf.org);
+        
+        const ctx = document.getElementById('myChart').getContext('2d');
+        const myChart = new Chart(ctx, {
             type: 'line',
-            data: {
-                labels: [],
-                datasets: [{
-                    label: 'Voltase (V)',
-                    data: [],
-                    borderColor: '#4CAF50',
-                    backgroundColor: 'rgba(76, 175, 80, 0.1)',
-                    fill: true,
-                    tension: 0.3,
-                    pointRadius: 1
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: { legend: { display: false } },
-                scales: {
-                    y: { grid: { color: '#333' }, ticks: { color: '#888', font: { size: 10 } } },
-                    x: { grid: { color: '#333' }, ticks: { color: '#888', font: { size: 10 }, maxRotation: 0 } }
-                }
-            }
+            data: { labels: [], datasets: [{ label: 'Voltase', data: [], borderColor: '#4CAF50', tension: 0.3, fill: true, backgroundColor: 'rgba(76,175,80,0.1)' }] },
+            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { grid: { color: '#333' } }, x: { grid: { color: '#333' } } } }
         });
 
-        async function fetchData() {
-            const fluxQuery = `
-                from(bucket: "${INFLUX_CONFIG.bucket}")
-                |> range(start: -12h)
-                |> filter(fn: (r) => r["_measurement"] == "power_analytics")
-            `;
-
-            let labels = [];
-            let voltages = [];
+        function update() {
+            // Ambil data 24 jam terakhir karena interval 10 menit butuh rentang lebar
+            const flux = `from(bucket: "${conf.bucket}") |> range(start: -24h) |> filter(fn: (r) => r._measurement == "power_final")`;
             let latest = {};
+            let historyV = [];
+            let labels = [];
 
-            queryApi.queryRows(fluxQuery, {
+            queryApi.queryRows(flux, {
                 next(row, tableMeta) {
                     const o = tableMeta.toObject(row);
                     if (o._field === "voltase") {
-                        const time = new Date(o._time);
-                        labels.push(time.getHours() + ":" + String(time.getMinutes()).padStart(2, '0'));
-                        voltages.push(o._value);
+                        labels.push(new Date(o._time).getHours() + ":" + String(new Date(o._time).getMinutes()).padStart(2, '0'));
+                        historyV.push(o._value);
                     }
                     latest[o._field] = o._value;
                 },
-                error(error) {
-                    document.getElementById('status-cloud').innerText = "❌ Putus Koneksi";
-                    console.error(error);
-                },
                 complete() {
                     if (latest.voltase) {
-                        document.getElementById('v').innerHTML = latest.voltase.toFixed(2) + '<span class="unit">V</span>';
-                        document.getElementById('i').innerHTML = Math.round(latest.arus_ma) + '<span class="unit">mA</span>';
-                        document.getElementById('s').innerHTML = Math.round(latest.suhu_cpu) + '<span class="unit">°C</span>';
+                        document.getElementById('v').innerText = latest.voltase.toFixed(2) + "V";
+                        document.getElementById('i').innerText = Math.round(latest.arus_ma);
+                        document.getElementById('p').innerText = Math.round(latest.persen) + "%";
+                        document.getElementById('s').innerText = Math.round(latest.suhu_cpu) + "°C";
                         
-                        const pVal = Math.round(latest.persen);
-                        const pElem = document.getElementById('p');
-                        pElem.innerHTML = pVal + '<span class="unit">%</span>';
-                        
-                        // Warna dinamis baterai
-                        pElem.className = "val " + (pVal > 70 ? "bat-high" : pVal > 30 ? "bat-mid" : "bat-low");
-
-                        mainChart.data.labels = labels.slice(-15);
-                        mainChart.data.datasets[0].data = voltages.slice(-15);
-                        mainChart.update();
-
-                        document.getElementById('status-cloud').innerText = "✅ Live: " + new Date().toLocaleTimeString();
+                        myChart.data.labels = labels.slice(-24); // Tampilkan 24 data terakhir (4 jam pemantauan)
+                        myChart.data.datasets[0].data = historyV.slice(-24);
+                        myChart.update();
+                        document.getElementById('status').innerText = "Update: " + new Date().toLocaleTimeString();
                     }
                 }
             });
         }
 
-        setInterval(fetchData, 5000);
-        fetchData();
+        setInterval(update, 30000); // Web cek data tiap 30 detik
+        update();
     </script>
 </body>
 </html>
