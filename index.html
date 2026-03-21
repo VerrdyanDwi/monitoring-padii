@@ -2,38 +2,64 @@
 <html lang="id">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Voltase Monitor - Padi PENS</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Suhu Pi Monitor</title>
     <script src="https://cdn.jsdelivr.net/npm/@influxdata/influxdb-client-browser/dist/index.browser.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
-        :root { --neon: #00FF41; --bg: #0a0a0a; --card: #151515; }
-        body { font-family: 'Segoe UI', sans-serif; background: var(--bg); color: #fff; margin: 0; padding: 10px; }
-        .header { text-align: center; border-bottom: 2px solid var(--neon); padding-bottom: 10px; margin-bottom: 15px; }
-        h1 { font-size: 1.2rem; color: var(--neon); margin: 5px 0; letter-spacing: 1px; }
-        
-        /* Grid Hybrid untuk Mobile */
-        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-        .card { background: var(--card); padding: 15px; border-radius: 8px; border: 1px solid #333; text-align: center; }
-        .label { font-size: 0.7rem; color: #888; text-transform: uppercase; }
-        .val { font-size: 1.5rem; font-weight: bold; margin: 5px 0; display: block; }
-        .unit { font-size: 0.6rem; color: var(--neon); }
-
-        /* Box khusus Grafik */
-        .chart-box { 
-            background: var(--card); margin-top: 15px; padding: 10px; 
-            border-radius: 8px; height: 280px; border: 1px solid #333; 
-        }
-        h3 { font-size: 0.8rem; color: var(--neon); margin: 0 0 10px 5px; text-transform: uppercase; }
-        #status { font-size: 0.7rem; color: #555; text-align: center; margin-top: 10px; }
+        body { font-family: sans-serif; background: #121212; color: white; text-align: center; padding: 20px; }
+        .card { background: #1e1e1e; padding: 25px; border-radius: 15px; border-bottom: 4px solid #ff5722; display: inline-block; min-width: 250px; }
+        .val { font-size: 3em; font-weight: bold; color: #ff5722; }
+        .chart-box { max-width: 600px; margin: 20px auto; background: #1e1e1e; padding: 15px; border-radius: 15px; height: 300px; }
     </style>
 </head>
 <body>
-
-    <div class="header">
-        <h1>LIVE VOLTAGE MONITOR</h1>
-        <div id="status">Connecting to Cloud...</div>
+    <h2>RASPBERRY PI TEMPERATURE</h2>
+    <div class="card">
+        <div style="font-size: 0.8em; color: #888;">SUHU CPU</div>
+        <div class="val" id="t">--</div>
+        <div style="font-size: 1.2em;">°C</div>
     </div>
+    <div class="chart-box"><canvas id="c"></canvas></div>
+    <div id="st" style="font-size: 0.7em; color: #444;">Menghubungkan...</div>
+
+    <script>
+        const conf = {
+            url: "https://us-east-1-1.aws.cloud2.influxdata.com",
+            token: "ieRDXoPlxImCroRqKYzySuX1xBYVIW0HQa2bOjoPwYldMyNWaJ_bA1U6s9kL2nLpbbDs_1dXWO4sCQI2CuIEMA==",
+            org: "Monitoring", bucket: "monitoring_padi"
+        };
+        const { InfluxDB } = window['@influxdata/influxdb-client'];
+        const queryApi = new InfluxDB({url: conf.url, token: conf.token}).getQueryApi(conf.org);
+        
+        const chart = new Chart(document.getElementById('c'), {
+            type: 'line',
+            data: { labels: [], datasets: [{ data: [], borderColor: '#ff5722', tension: 0.4, pointRadius: 0, fill: true, backgroundColor: 'rgba(255,87,34,0.1)' }] },
+            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { display: false }, y: { grid: { color: '#333' } } } }
+        });
+
+        function update() {
+            const flux = `from(bucket: "${conf.bucket}") |> range(start: -3h) |> filter(fn: (r) => r._measurement == "cpu_temp_monitor")`;
+            let last = 0, data = [], labs = [];
+            queryApi.queryRows(flux, {
+                next(row, tableMeta) {
+                    const o = tableMeta.toObject(row);
+                    labs.push(""); data.push(o._value); last = o._value;
+                },
+                complete() {
+                    if(last > 0) {
+                        document.getElementById('t').innerText = last.toFixed(1);
+                        chart.data.labels = labs; chart.data.datasets[0].data = data;
+                        chart.update();
+                        document.getElementById('st').innerText = "Last Update: " + new Date().toLocaleTimeString();
+                    }
+                }
+            });
+        }
+        setInterval(update, 30000); update();
+    </script>
+</body>
+</html>
 
     <div class="grid">
         <div class="card">
