@@ -2,26 +2,58 @@
 <html lang="id">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Suhu Pi Monitor</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>CPU Temp Monitor</title>
     <script src="https://cdn.jsdelivr.net/npm/@influxdata/influxdb-client-browser/dist/index.browser.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
-        body { font-family: sans-serif; background: #121212; color: white; text-align: center; padding: 20px; }
-        .card { background: #1e1e1e; padding: 25px; border-radius: 15px; border-bottom: 4px solid #ff5722; display: inline-block; min-width: 250px; }
-        .val { font-size: 3em; font-weight: bold; color: #ff5722; }
-        .chart-box { max-width: 600px; margin: 20px auto; background: #1e1e1e; padding: 15px; border-radius: 15px; height: 300px; }
+        :root { --accent: #ff5722; --bg: #0f0f0f; --card: #1a1a1a; }
+        body { font-family: 'Segoe UI', sans-serif; background: var(--bg); color: white; margin: 0; padding: 15px; }
+        
+        .header { text-align: center; margin-bottom: 20px; }
+        h1 { font-size: 1.1rem; color: #888; letter-spacing: 1px; margin: 0; }
+
+        .main-card {
+            background: var(--card);
+            padding: 30px 15px;
+            border-radius: 20px;
+            text-align: center;
+            border-bottom: 4px solid var(--accent);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            margin-bottom: 20px;
+        }
+        .label { font-size: 0.8rem; color: #666; text-transform: uppercase; margin-bottom: 10px; }
+        .temp-val { font-size: 4rem; font-weight: bold; color: var(--accent); line-height: 1; }
+        .unit { font-size: 1.5rem; color: #444; margin-left: 5px; }
+
+        .chart-container {
+            background: var(--card);
+            padding: 15px;
+            border-radius: 20px;
+            height: 300px;
+            box-sizing: border-box;
+        }
+        h3 { font-size: 0.9rem; color: #555; margin: 0 0 15px 5px; }
+        #status { font-size: 0.7rem; color: #333; text-align: center; margin-top: 20px; }
     </style>
 </head>
 <body>
-    <h2>RASPBERRY PI TEMPERATURE</h2>
-    <div class="card">
-        <div style="font-size: 0.8em; color: #888;">SUHU CPU</div>
-        <div class="val" id="t">--</div>
-        <div style="font-size: 1.2em;">°C</div>
+
+    <div class="header">
+        <h1>RASPBERRY PI HEALTH</h1>
     </div>
-    <div class="chart-box"><canvas id="c"></canvas></div>
-    <div id="st" style="font-size: 0.7em; color: #444;">Menghubungkan...</div>
+
+    <div class="main-card">
+        <div class="label">Suhu CPU Sekarang</div>
+        <div class="temp-val" id="t">--<span class="unit">°C</span></div>
+    </div>
+
+    <div class="chart-container">
+        <h3>Tren Suhu (6 Jam Terakhir)</h3>
+        <canvas id="tempChart"></canvas>
+    </div>
+
+    <div id="status">Menghubungkan ke server...</div>
 
     <script>
         const conf = {
@@ -29,34 +61,63 @@
             token: "ieRDXoPlxImCroRqKYzySuX1xBYVIW0HQa2bOjoPwYldMyNWaJ_bA1U6s9kL2nLpbbDs_1dXWO4sCQI2CuIEMA==",
             org: "Monitoring", bucket: "monitoring_padi"
         };
+
         const { InfluxDB } = window['@influxdata/influxdb-client'];
         const queryApi = new InfluxDB({url: conf.url, token: conf.token}).getQueryApi(conf.org);
-        
-        const chart = new Chart(document.getElementById('c'), {
+
+        const ctx = document.getElementById('tempChart').getContext('2d');
+        const chart = new Chart(ctx, {
             type: 'line',
-            data: { labels: [], datasets: [{ data: [], borderColor: '#ff5722', tension: 0.4, pointRadius: 0, fill: true, backgroundColor: 'rgba(255,87,34,0.1)' }] },
-            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { display: false }, y: { grid: { color: '#333' } } } }
+            data: { 
+                labels: [], 
+                datasets: [{ 
+                    data: [], 
+                    borderColor: '#ff5722', 
+                    borderWidth: 3,
+                    tension: 0.4, 
+                    pointRadius: 0, 
+                    fill: true, 
+                    backgroundColor: 'rgba(255,87,34,0.1)' 
+                }] 
+            },
+            options: { 
+                responsive: true, 
+                maintainAspectRatio: false, 
+                plugins: { legend: { display: false } }, 
+                scales: { 
+                    x: { display: false }, 
+                    y: { grid: { color: '#222' }, ticks: { color: '#444' } } 
+                } 
+            }
         });
 
-        function update() {
-            const flux = `from(bucket: "${conf.bucket}") |> range(start: -3h) |> filter(fn: (r) => r._measurement == "cpu_temp_monitor")`;
-            let last = 0, data = [], labs = [];
+        function fetchData() {
+            // Ambil data dari measurement cpu_temp_only
+            const flux = `from(bucket: "${conf.bucket}") |> range(start: -6h) |> filter(fn: (r) => r._measurement == "cpu_temp_only")`;
+            let lastTemp = 0, dataArr = [], labelArr = [];
+
             queryApi.queryRows(flux, {
                 next(row, tableMeta) {
                     const o = tableMeta.toObject(row);
-                    labs.push(""); data.push(o._value); last = o._value;
+                    labelArr.push("");
+                    dataArr.push(o._value);
+                    lastTemp = o._value;
                 },
                 complete() {
-                    if(last > 0) {
-                        document.getElementById('t').innerText = last.toFixed(1);
-                        chart.data.labels = labs; chart.data.datasets[0].data = data;
+                    if(lastTemp > 0) {
+                        document.getElementById('t').innerHTML = lastTemp.toFixed(1) + '<span class="unit">°C</span>';
+                        chart.data.labels = labelArr;
+                        chart.data.datasets[0].data = dataArr;
                         chart.update();
-                        document.getElementById('st').innerText = "Last Update: " + new Date().toLocaleTimeString();
+                        document.getElementById('status').innerText = "Terakhir diperbarui: " + new Date().toLocaleTimeString();
                     }
                 }
             });
         }
-        setInterval(update, 30000); update();
+
+        // Update tiap 30 detik untuk tampilan web
+        setInterval(fetchData, 30000); 
+        fetchData();
     </script>
 </body>
 </html>
